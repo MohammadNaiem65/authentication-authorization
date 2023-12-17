@@ -2,6 +2,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { initializeApp, cert } = require('firebase-admin/app');
+const cors = require('cors');
 require('dotenv').config();
 
 // internal imports
@@ -12,6 +13,9 @@ const firebaseCredentials = require('./firebase-credentials.json');
 
 const app = express();
 const port = process.env.PORT;
+
+// middlewares
+app.use(cors());
 
 // initialize firebase app
 initializeApp({
