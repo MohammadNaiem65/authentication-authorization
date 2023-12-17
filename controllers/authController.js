@@ -1,15 +1,12 @@
-// external import
-const express = require('express');
-const jwt = require('jsonwebtoken');
+// external imports
 const { getAuth } = require('firebase-admin/auth');
+const jwt = require('jsonwebtoken');
 
 // internal imports
 const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
 
-const router = express.Router();
-
-router.post('/login', async (req, res) => {
+async function login(req, res) {
 	const authHeader = req.headers.authorization;
 	const token = authHeader && authHeader.split(' ')[1];
 
@@ -86,6 +83,6 @@ router.post('/login', async (req, res) => {
 	} catch (err) {
 		console.log(err);
 	}
-});
+}
 
-module.exports = router;
+module.exports = { login };

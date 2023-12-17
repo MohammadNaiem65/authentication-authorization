@@ -7,7 +7,7 @@ const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 // internal imports
-const userHandler = require('./handlers/authHandlers');
+const userHandler = require('./handlers/authHandler');
 
 // ? TODO: Add your firebase project credentials here
 const firebaseCredentials = require('./firebase-credentials.json');
