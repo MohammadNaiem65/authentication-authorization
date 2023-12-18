@@ -19,6 +19,13 @@ async function login(req, res) {
 		const decodedToken = await auth.verifyIdToken(token);
 		const { name, picture, email, email_verified, uid } = decodedToken;
 
+		// save user data
+		const userData = {
+			userEmail: email,
+			userId: decodedToken?._id,
+			role: decodedToken?.role,
+		};
+
 		// if user does not exist
 		if (!decodedToken?.role || !decodedToken?._id) {
 			// create a new user
@@ -31,13 +38,17 @@ async function login(req, res) {
 			});
 
 			// save user to database
-			newUser
+			await newUser
 				.save()
 				.then(async () => {
+					// save users data
+					userData.userId = newUser._id;
+					userData.role = newUser.role;
+
 					// save custom claims in firebase
-					await auth.setCustomUserClaims(uid, {
+					auth.setCustomUserClaims(uid, {
 						_id: newUser._id,
-						role: 'student',
+						role: newUser.role,
 					});
 				})
 				.catch(async () => {
@@ -48,12 +59,6 @@ async function login(req, res) {
 		}
 
 		// generate access and refresh tokens
-		const userData = {
-			email,
-			_id: decodedToken._id,
-			role: decodedToken.role,
-		};
-
 		const accessToken = jwt.sign(
 			userData,
 			process.env.ACCESS_TOKEN_SECRET,
@@ -68,21 +73,47 @@ async function login(req, res) {
 
 		// save refresh token to database
 		await RefreshToken.create({
-			userId: decodedToken._id,
+			userId: userData.userId,
 			token: refreshToken,
 		});
 
 		// send response to user
-		res.cookie('refreshToken', refreshToken, {
+		res.cookie(process.env.REFRESH_TOKEN_COOKIE_NAME, refreshToken, {
 			maxAge: 30 * 24 * 60 * 60 * 1000,
 			httpOnly: true,
 			signed: true,
 			secure: true,
 		});
-		res.json({ msg: 'Successful', accessToken });
+		res.json({ msg: 'Successful', user: userData, accessToken });
 	} catch (err) {
 		console.log(err);
 	}
 }
 
-module.exports = { login };
+async function logout(req, res) {
+	const userId = req.user.userId;
+
+	try {
+		// delete refresh token from the server
+		const result = await RefreshToken.deleteOne({ userId });
+
+		// if error occurred
+		if (result.deletedCount <= 0) {
+			// send response back to the client
+			res.status(500).json({
+				msg: 'Something went wrong! Please try again.',
+			});
+		}
+
+		// send response back to the client
+		res.clearCookie(process.env.REFRESH_TOKEN_COOKIE_NAME);
+		res.status(200).json({ msg: 'Logout successful.' });
+	} catch (error) {
+		// send response back to the client
+		res.status(500).json({
+			msg: 'Something went wrong! Please try again.',
+		});
+	}
+}
+
+module.exports = { login, logout };
