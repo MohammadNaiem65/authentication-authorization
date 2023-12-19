@@ -1,0 +1,37 @@
+Goal- 
+
+    1. Verify firebase token and get users data 
+    2. Save user to database 
+    3. If the user is new save custom claim (role and _id) in the firebase 
+    4. Create Access and Refresh token 
+    5. Save refresh token to database 
+    6. Send refresh token as cookie and access token as json
+
+
+
+Steps-
+
+    ✅ 1. Verify firebase token and get users data-
+        => name
+        => email
+        => email_verified
+        => picture
+        => uid
+
+    If the user is new-
+        ✅ 2. Save user to database-
+            => Before saving, initialize the User model for indexing
+            => If any error occurs while saving, delete the user from firebase
+
+        ✅ 3. If the user is new save custom claim (role and _id) in the firebase-
+            => After saving the user to database, get the _id and role of the user and save it to firebase as custom claim
+
+    ✅ 4. Create Access and Refresh token-
+        => Create Access and Refresh token according the requirement
+
+    ✅ 5. Save refresh token to the database-
+        => Add functionality to delete the refresh token after it expires
+
+    ✅ 6. Send refresh token as cookie and access token as json
+        => Send a httpOnly, signed and secure refresh token
+        => Keep the user data and access token in the json response

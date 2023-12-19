@@ -6,16 +6,19 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
 
-async function login(req, res) {
-	const authHeader = req.headers.authorization;
-	const token = authHeader && authHeader.split(' ')[1];
+async function authenticate(req, res) {
+	// get firebase idToken from headers
+	const authToken = req.headers.authorization;
+	const token = authToken && authToken.split(' ')[1];
 
-	// send unauthorized status
+	// if token is unavailable - send unauthorized response
 	if (!token) return res.sendStatus(401);
 
+	// get a auth instance
 	const auth = getAuth();
 
 	try {
+		// verify token
 		const decodedToken = await auth.verifyIdToken(token);
 		const { name, picture, email, email_verified, uid } = decodedToken;
 
@@ -26,36 +29,27 @@ async function login(req, res) {
 			role: decodedToken?.role,
 		};
 
-		// if user does not exist
-		if (!decodedToken?.role || !decodedToken?._id) {
-			// create a new user
+		// if user doesn't exist - save user data to database
+		if (!decodedToken?._id || !decodedToken?.role) {
+			// save user to database
 			await User.init();
-			const newUser = new User({
+
+			const newUser = await User.create({
 				name,
 				email,
 				emailVerified: email_verified,
 				img: picture,
 			});
 
-			// save user to database
-			await newUser
-				.save()
-				.then(async () => {
-					// save users data
-					userData.userId = newUser._id;
-					userData.role = newUser.role;
+			// store user id and role
+			userData.userId = newUser._id;
+			userData.role = newUser.role;
 
-					// save custom claims in firebase
-					auth.setCustomUserClaims(uid, {
-						_id: newUser._id,
-						role: newUser.role,
-					});
-				})
-				.catch(async () => {
-					// error occurred - delete user from firebase
-					await auth.deleteUser(uid);
-					res.sendStatus(500);
-				});
+			// save user id and role to firebase
+			await auth.setCustomUserClaims(uid, {
+				_id: newUser._id,
+				role: newUser.role,
+			});
 		}
 
 		// generate access and refresh tokens
@@ -71,7 +65,8 @@ async function login(req, res) {
 			{ expiresIn: '30 days' }
 		);
 
-		// save refresh token to database
+		// save refresh token to database and delete one if an exists for the user
+		await RefreshToken.deleteOne({ userId: userData.userId });
 		await RefreshToken.create({
 			userId: userData.userId,
 			token: refreshToken,
@@ -87,6 +82,39 @@ async function login(req, res) {
 		res.json({ msg: 'Successful', user: userData, accessToken });
 	} catch (err) {
 		console.log(err);
+
+		// if the firebase idToken is expired
+		if (err.code === 'auth/id-token-expired') {
+			res.status(403).json({
+				error: { msg: 'Firebase auth token expired' },
+			});
+		}
+
+		// If user validation failed
+		else if (err._message === 'User validation failed') {
+			const { uid } = await auth.verifyIdToken(token);
+
+			// delete user from firebase
+			await auth.deleteUser(uid);
+			res.status(400).json({ error: { msg: 'User validation failed' } });
+		}
+
+		// if any duplicate data found in the database
+		else if (err.code === 11000) {
+			console.log(err);
+			res.status(409).json({
+				error: {
+					msg: `A user with the ${
+						Object.keys(err.keyValue)[0]
+					} already exists`,
+				},
+			});
+		}
+
+		// otherwise
+		else {
+			res.sendStatus(500);
+		}
 	}
 }
 
@@ -116,4 +144,8 @@ async function logout(req, res) {
 	}
 }
 
-module.exports = { login, logout };
+async function generateToken(req, res) {
+	console.log('object');
+}
+
+module.exports = { authenticate, logout, generateToken };

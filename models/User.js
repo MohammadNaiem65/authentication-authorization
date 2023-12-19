@@ -5,13 +5,14 @@ const userSchema = new mongoose.Schema(
 	{
 		name: {
 			type: String,
+			required: true,
 			trim: true,
 		},
 		email: {
 			type: String,
-			trim: true,
-			unique: true,
 			required: true,
+			unique: true,
+			trim: true,
 		},
 		emailVerified: {
 			type: Boolean,
@@ -23,7 +24,6 @@ const userSchema = new mongoose.Schema(
 			default: 'student',
 		},
 		img: String,
-		refreshToken: String,
 	},
 	{
 		timestamps: true,
